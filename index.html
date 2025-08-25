@@ -1,20 +1,296 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Snake Game</title>
-  <link rel="stylesheet" href="./styles.css">
+    <meta charset="UTF-8">
+    <title>Snake Game Neon</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- ESTILOS (CSS) --- */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #0d0d0d;
+            color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            background-color: #1a1a1a;
+            border-radius: 15px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4), inset 0 0 15px rgba(0, 255, 0, 0.2);
+            padding: 30px;
+            text-align: center;
+            width: fit-content;
+        }
+
+        h1 {
+            color: #0f0;
+            margin-bottom: 20px;
+            text-shadow: 0 0 8px #0f0, 0 0 16px #0f0, 0 0 24px #0f0;
+            font-size: 2em;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        label {
+            color: #0f0;
+            text-shadow: 0 0 5px #0f0;
+        }
+
+        input[type="color"] {
+            background-color: #333;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            height: 30px;
+            width: 60px;
+            cursor: pointer;
+            transition: box-shadow 0.3s;
+        }
+
+        input[type="color"]:hover {
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.7);
+        }
+
+        button {
+            background-color: #0f0;
+            color: #111;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.7);
+        }
+
+        button:hover {
+            background-color: #fff;
+            color: #0f0;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.9);
+        }
+
+        #score {
+            color: #0f0;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 5px #0f0;
+        }
+
+        canvas {
+            background-color: #000;
+            border: 2px solid #0f0;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.7);
+        }
+
+        .game-over {
+            color: #ff0;
+            font-size: 1.5em;
+            margin-top: 20px;
+            min-height: 30px; /* Evita que o layout pule quando a msg aparece */
+            text-shadow: 0 0 10px #ff0, 0 0 20px #ff0;
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="game-container">
-    <h1>Snake Game</h1>
-    <label for="snakeColor">Escolha a cor da cobrinha:</label>
-    <input type="color" id="snakeColor" value="#00cc00">
-    <button onclick="startGame()">Iniciar Jogo</button>
-    <p id="score">Pontuação: 0</p>
-    <canvas id="gameCanvas" width="400" height="400"></canvas>
-    <p id="gameOverMsg"></p>
-  </div>
-  <script src="./script.js"></script>
+    <div class="game-container">
+        <h1>SNAKE NEON</h1>
+        <div class="controls">
+            <label for="snakeColor">Cor da Cobra:</label>
+            <input type="color" id="snakeColor" value="#00ff00">
+            <button onclick="startGame()">Iniciar Jogo</button>
+        </div>
+        <p id="score">Pontuação: 0</p>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <p id="gameOverMsg" class="game-over"></p>
+    </div>
+
+    <script>
+        // --- LÓGICA DO JOGO (JAVASCRIPT) ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const box = 20;
+        const canvasSize = 400;
+
+        let snake = [];
+        let direction = 'RIGHT';
+        let food = {};
+        let score = 0;
+        let snakeColor = '#00ff00';
+        let gameLoop;
+
+        // Efeito de pulsação para a comida
+        let pulse = 0;
+        const pulseSpeed = 0.05;
+
+        // Função para desenhar quadrados com cantos arredondados
+        function drawRoundedRect(x, y, width, height, radius, color) {
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10;
+
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Resetar sombra para não afetar outros desenhos
+            ctx.shadowBlur = 0;
+        }
+        
+        // Função para desenhar a comida (agora como um círculo pulsante)
+        function drawFood() {
+            const pulseSize = Math.abs(Math.sin(pulse)) * 3 + 7; // Raio entre 7 e 10
+            const x = food.x + box / 2;
+            const y = food.y + box / 2;
+
+            ctx.fillStyle = food.color;
+            ctx.shadowColor = food.color;
+            ctx.shadowBlur = 15;
+
+            ctx.beginPath();
+            ctx.arc(x, y, pulseSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+        }
+
+        // Gera uma posição aleatória na grade do jogo
+        function randomPosition() {
+            return Math.floor(Math.random() * (canvasSize / box)) * box;
+        }
+
+        // Posiciona a comida em um novo local
+        function placeFood() {
+            food = {
+                x: randomPosition(),
+                y: randomPosition(),
+                color: `hsl(${Math.random() * 360}, 100%, 70%)` // Cores vibrantes
+            };
+
+            // Garante que a comida não apareça em cima da cobra
+            for (let segment of snake) {
+                if (food.x === segment.x && food.y === segment.y) {
+                    placeFood();
+                    return;
+                }
+            }
+        }
+
+        function draw() {
+            // Fundo preto com um leve "rastro" para efeito visual
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+            pulse += pulseSpeed;
+
+            drawFood();
+
+            // Desenha a cobra
+            snake.forEach((segment, index) => {
+                // A cabeça é mais brilhante
+                const opacity = (index === snake.length - 1) ? 1.0 : 0.8;
+                const color = snakeColor.startsWith('#') ? `${snakeColor}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}` : snakeColor;
+                drawRoundedRect(segment.x + 2, segment.y + 2, box - 4, box - 4, 5, color);
+            });
+
+            // Move a cabeça da cobra
+            const head = { ...snake[snake.length - 1] };
+            if (direction === 'LEFT') head.x -= box;
+            if (direction === 'RIGHT') head.x += box;
+            if (direction === 'UP') head.y -= box;
+            if (direction === 'DOWN') head.y += box;
+            
+            // Condições de Game Over
+            if (head.x < 0 || head.x >= canvasSize || head.y < 0 || head.y >= canvasSize || checkCollision(head)) {
+                gameOver();
+                return;
+            }
+
+            // Adiciona a nova cabeça
+            snake.push(head);
+
+            // Verifica se a cobra comeu a comida
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                document.getElementById('score').textContent = 'Pontuação: ' + score;
+                placeFood();
+            } else {
+                // Remove o último segmento se não comeu
+                snake.shift();
+            }
+        }
+
+        // Verifica colisão da cabeça com o corpo
+        function checkCollision(head) {
+            for (let i = 0; i < snake.length - 1; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Muda a direção da cobra com base na tecla pressionada
+        function changeDirection(e) {
+            const key = e.key;
+            if ((key === 'ArrowLeft' || key === 'a') && direction !== 'RIGHT') direction = 'LEFT';
+            if ((key === 'ArrowUp' || key === 'w') && direction !== 'DOWN') direction = 'UP';
+            if ((key === 'ArrowRight' || key === 'd') && direction !== 'LEFT') direction = 'RIGHT';
+            if ((key === 'ArrowDown' || key === 's') && direction !== 'UP') direction = 'DOWN';
+        }
+
+        function startGame() {
+            snakeColor = document.getElementById('snakeColor').value;
+            snake = [{ x: 200, y: 200 }]; // Inicia com um segmento no centro
+            direction = 'RIGHT';
+            score = 0;
+            document.getElementById('score').textContent = 'Pontuação: 0';
+            document.getElementById('gameOverMsg').textContent = '';
+            
+            placeFood();
+            
+            clearInterval(gameLoop);
+            gameLoop = setInterval(draw, 100);
+            
+            document.addEventListener('keydown', changeDirection);
+        }
+
+        function gameOver() {
+            clearInterval(gameLoop);
+            document.getElementById('gameOverMsg').textContent = 'GAME OVER';
+            document.removeEventListener('keydown', changeDirection);
+        }
+    </script>
 </body>
 </html>
